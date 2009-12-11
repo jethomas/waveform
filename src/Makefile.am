@@ -1,15 +1,15 @@
 ## Process this file with automake to produce Makefile.in
 
-INCLUDES = @WAVEFORM_CFLAGS@
+INCLUDES = @AVCODEC_CFLAGS@ @AVFORMAT_CFLAGS@ @SDL_CFLAGS@
 
-bin_PROGRAMS = waveform
+bin_PROGRAMS = waveshow
 
 
-waveform_SOURCES = \
-        main.c waveform.h \
-        config.c config.h \
+waveshow_SOURCES = \
+        main.c waveshow.h \
+        config_manager.c config_manager.h \
         interface.c interface.h \
         load.c load.h
 
-waveform_LDADD = @WAVEFORM_LIBS@
+waveshow_LDADD = @AVCODEC_LIBS@ @AVFORMAT_LIBS@ @SDL_LIBS@
 

@@ -1,4 +1,4 @@
-#include "waveform.h"
+#include "waveshow.h"
 
 int main (int argc, char ** argv)
 {
