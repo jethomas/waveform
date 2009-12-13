@@ -2,6 +2,8 @@
 
 int main (int argc, char ** argv)
 {
+	char *data;
+
 	/* Initialize SDL */
 	if (SDL_Init(SDL_INIT_TIMER | SDL_INIT_AUDIO | SDL_INIT_VIDEO))
 	{
@@ -13,7 +15,20 @@ int main (int argc, char ** argv)
 	avcodec_init();
 	avcodec_register_all();
 
-	start_interface();
+	if (argc > 1)
+	{
+		data = load_file(argv[1]);
+	}
 
+	if (data)
+	{
+		start_interface();
+	}
+	else
+	{
+		fprintf(stderr, "No data to display!\n");
+	}
+
+	SDL_Quit();
 	return 0;
 }

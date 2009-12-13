@@ -1,7 +1,7 @@
 #include "waveshow.h"
 #include "interface.h"
 
-void event_loop(void)
+void event_loop(SDL_Surface *screen)
 {
 	SDL_Event ev;
 
@@ -12,15 +12,17 @@ void event_loop(void)
 			switch (ev.type)
 			{
 				case SDL_KEYDOWN:
-					if (ev.key.keysym.sym == SDLK_q)
+					switch (ev.key.keysym.sym)
 					{
-						SDL_Quit();
+						case SDLK_q:
+							return;
+							break;
 					}
-					return;
+					break;
 
 				case SDL_QUIT:
-					SDL_Quit();
 					return;
+					break;
 			}
 		}
 	}
@@ -41,5 +43,5 @@ void start_interface()
 
 	SDL_WM_SetCaption("Waveform Display", NULL);
 
-	event_loop();
+	event_loop(screen);
 }
