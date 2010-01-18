@@ -3,7 +3,7 @@
 
 #define INBUF_SIZE 4096
 
-char * load_file(const char *filename)
+int16_t *load_file(const char *filename)
 {
 	AVFormatContext *formatContext;
 	AVCodec *codec;
@@ -11,7 +11,8 @@ char * load_file(const char *filename)
 	AVPacket avpkt;
 	int len, i, outsize;
 	FILE *f;
-	char *outbuf, inbuf[INBUF_SIZE + FF_INPUT_BUFFER_PADDING_SIZE];
+	uint8_t inbuf[INBUF_SIZE + FF_INPUT_BUFFER_PADDING_SIZE];
+	int16_t *outbuf;
 
 	if ((!filename) || (filename[0] == '\0'))
 		return NULL;
@@ -49,6 +50,7 @@ char * load_file(const char *filename)
 			}
 		}
 	}
+	av_close_input_file(formatContext);
 
 	if (!codec)
 	{
@@ -74,7 +76,7 @@ char * load_file(const char *filename)
 	av_init_packet(&avpkt);
 	while (1)
 	{
-		avpkt.size = fread(inbuf, 1, INBUF_SIZE, f);
+		avpkt.size = fread(inbuf, sizeof(uint8_t), INBUF_SIZE, f);
 		if (avpkt.size == 0)
 			break;
 
