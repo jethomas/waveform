@@ -3,18 +3,19 @@
 
 #define INBUF_SIZE 4096
 
-int16_t *load_file(const char *filename)
+int16_t *load_file(const char *filename, unsigned int *data_size)
 {
 	AVFormatContext *formatContext;
 	AVCodec *codec;
-	AVCodecContext *c;
+	AVCodecContext *enc;
 	AVPacket avpkt;
-	int len, i, outsize;
-	FILE *f;
 	uint8_t inbuf[INBUF_SIZE + FF_INPUT_BUFFER_PADDING_SIZE];
-	int16_t *outbuf;
+	uint16_t *outdata, *tdata, *samples;
+	unsigned int samples_size, outsize;
+	int i, error, len;
+	FILE *f;
 
-	if ((!filename) || (filename[0] == '\0'))
+	if ((!filename) || (filename[0] == '\0') || (!data_size))
 		return NULL;
 
 	f = fopen(filename, "rb");
@@ -24,9 +25,11 @@ int16_t *load_file(const char *filename)
 		return NULL;
 	}
 
-	if (av_open_input_file(&formatContext, filename, NULL, 0, NULL) != 0)
+	error = av_open_input_file(&formatContext, filename, NULL, 0, NULL);
+	if (error != 0)
 	{
-		fprintf(stderr, "Couldn't open file %s!\n", filename);
+		fprintf(stderr, "Couldn't av_open file %s (error: %s [%d])!\n", filename,
+				strerror(error * -1), error * -1);
 		return NULL;
 	}
 
@@ -41,6 +44,7 @@ int16_t *load_file(const char *filename)
 	{
 		if (formatContext->streams[i]->codec->codec_type == CODEC_TYPE_AUDIO)
 		{
+			enc = formatContext->streams[i]->codec;
 			codec = avcodec_find_decoder(
 					formatContext->streams[i]->codec->codec_id);
 			if (!codec)
@@ -48,9 +52,9 @@ int16_t *load_file(const char *filename)
 				fprintf(stderr, "Couldn't find a codec for this file!\n");
 				return NULL;
 			}
+			break;
 		}
 	}
-	av_close_input_file(formatContext);
 
 	if (!codec)
 	{
@@ -58,49 +62,65 @@ int16_t *load_file(const char *filename)
 		return NULL;
 	}
 
-	c = avcodec_alloc_context();
-
-	if (avcodec_open(c, codec) < 0)
+	if (avcodec_open(enc, codec) < 0)
 	{
 		fprintf(stderr, "Couldn't open codec!\n");
 		return NULL;
 	}
 
-	outbuf = malloc(AVCODEC_MAX_AUDIO_FRAME_SIZE);
-	if (!outbuf)
+	samples = malloc(AVCODEC_MAX_AUDIO_FRAME_SIZE);
+	if (!samples)
 	{
-		fprintf(stderr, "Couldn't allocate raw data!\n");
+		fprintf(stderr, "Couldn't allocate frame buffer!\n");
 		return NULL;
 	}
 
 	av_init_packet(&avpkt);
+	outsize = 0;
+	outdata = NULL;
+
 	while (1)
 	{
-		avpkt.size = fread(inbuf, sizeof(uint8_t), INBUF_SIZE, f);
-		if (avpkt.size == 0)
-			break;
-
+		avpkt.size = fread(inbuf, 1, INBUF_SIZE, f);
 		avpkt.data = inbuf;
 		while (avpkt.size > 0)
 		{
-			outsize = AVCODEC_MAX_AUDIO_FRAME_SIZE;
-			len = avcodec_decode_audio3(c, outbuf, &outsize, &avpkt);
+			samples_size = AVCODEC_MAX_AUDIO_FRAME_SIZE;
+			len = avcodec_decode_audio3(enc, samples, &samples_size, &avpkt);
 			if (len < 0)
 			{
 				fprintf(stderr, "Error while decoding file!\n");
+				if (outdata) free(outdata);
 				return NULL;
 			}
 			avpkt.size -= len;
 			avpkt.data += len;
 
-			/* XXX DEBUG XXX */
-			goto DEBUG_EXIT;
+			/* Only do this if a frame has actually been output */
+			if (samples_size > 0)
+			{
+				printf("Requesting size of %d\n", outsize + samples_size);
+				tdata = realloc(outdata, outsize + samples_size);
+				if (!tdata)
+				{
+					fprintf(stderr, "Couldn't reallocate sample buffer!\n");
+					free(outdata);
+					return NULL;
+				}
+				else
+				{
+					outdata = tdata;
+				}
+				printf("SAMPLE: %p %p\n", samples, samples + samples_size - 1);
+				printf("OUTBUF: %p %p % p\n", outdata, outdata + outsize, outdata + outsize + samples_size - 1);
+				memcpy((char *)outdata + outsize, (char *)samples, samples_size);
+				outsize += samples_size;
+			}
 		}
 	}
 
-DEBUG_EXIT:
+	*data_size = outsize;
+	av_close_input_file(formatContext);
 	fclose(f);
-	avcodec_close(c);
-	av_free(c);
-	return outbuf;
+	return outdata;
 }
